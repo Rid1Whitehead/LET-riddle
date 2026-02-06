@@ -5,18 +5,234 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title></title>
   <style>
+    :root { color-scheme: light dark; }
     body {
-      margin: 24px;
+      margin: 0;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      display: grid;
+      place-items: center;
+      height: 100vh;
+      user-select: none;
     }
-    .row { margin: 14px 0; }
-    audio { width: min(560px, 100%); }
+    .wrap {
+      width: min(520px, 92vw);
+      padding: 22px 18px;
+      border: 1px solid rgba(127,127,127,.35);
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.15);
+    }
+    .row { display: flex; align-items: center; gap: 12px; }
+    .status { font-size: 14px; opacity: .85; min-height: 18px; }
+    .title { font-size: 18px; margin: 0 0 10px 0; font-weight: 650; letter-spacing: .2px; }
+    .bar {
+      height: 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(127,127,127,.35);
+      overflow: hidden;
+      margin: 12px 0 14px;
+    }
+    .fill {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: currentColor;
+      opacity: .35;
+      transition: width 220ms linear;
+    }
+    .btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(127,127,127,.45);
+      background: rgba(127,127,127,.12);
+      cursor: pointer;
+      font-weight: 600;
+      letter-spacing: .15px;
+      width: 160px;
+      height: 40px;
+      touch-action: manipulation;
+    }
+    .btn:active { transform: scale(.99); }
+    .hint {
+      font-size: 12px;
+      opacity: .6;
+      margin-top: 12px;
+      min-height: 16px;
+    }
+
+    /* tiny "messing with you" movements */
+    @keyframes nudge {
+      0% { transform: translateX(0); }
+      35% { transform: translateX(6px); }
+      70% { transform: translateX(-4px); }
+      100% { transform: translateX(0); }
+    }
+    .nudge { animation: nudge 260ms ease-in-out; }
+
+    /* invisible-but-noticeable micro flicker */
+    .flicker {
+      animation: flicker 1.6s infinite;
+    }
+    @keyframes flicker {
+      0%, 100% { opacity: .85; }
+      92% { opacity: .85; }
+      95% { opacity: .35; }
+      97% { opacity: .85; }
+      99% { opacity: .55; }
+    }
   </style>
 </head>
 <body>
-  <div class="row"><audio controls preload="none"><source src="part_1.wav" type="audio/wav"></audio></div>
-  <div class="row"><audio controls preload="none"><source src="part_2.wav" type="audio/wav"></audio></div>
-  <div class="row"><audio controls preload="none"><source src="part_3.wav" type="audio/wav"></audio></div>
-  <div class="row"><audio controls preload="none"><source src="part_4.wav" type="audio/wav"></audio></div>
+  <div class="wrap">
+    <p class="title">Loading…</p>
+
+    <div class="bar" aria-label="progress">
+      <div class="fill" id="fill"></div>
+    </div>
+
+    <div class="row">
+      <button class="btn" id="btn" type="button">Continue</button>
+      <div class="status flicker" id="status"></div>
+    </div>
+
+    <div class="hint" id="hint"></div>
+  </div>
+
+  <script>
+    // Playful "teasing" page: looks like it will complete, but keeps almost finishing.
+
+    const fill = document.getElementById("fill");
+    const status = document.getElementById("status");
+    const hint = document.getElementById("hint");
+    const btn = document.getElementById("btn");
+
+    const statuses = [
+      "Verifying…",
+      "Almost there…",
+      "One moment…",
+      "Just a second…",
+      "Finalizing…",
+      "Optimizing…",
+      "Checking again…"
+    ];
+
+    const hints = [
+      "",
+      "",
+      "…",
+      "… …",
+      "",
+      "still working?",
+      "",
+      ""
+    ];
+
+    let progress = 0;
+    let clicks = 0;
+    let lastMove = 0;
+
+    function rand(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function setStatus() {
+      status.textContent = statuses[rand(0, statuses.length - 1)];
+      hint.textContent = hints[rand(0, hints.length - 1)];
+    }
+
+    function setProgress(p) {
+      progress = Math.max(0, Math.min(100, p));
+      fill.style.width = progress.toFixed(0) + "%";
+    }
+
+    function teaseReset() {
+      // Hit 96–99% then slip back a bit
+      const peak = rand(96, 99);
+      setProgress(peak);
+      setStatus();
+
+      setTimeout(() => {
+        setProgress(rand(22, 44));
+        setStatus();
+      }, rand(700, 1400));
+    }
+
+    // Background "loading" loop
+    function tick() {
+      // drift upward
+      const step = rand(1, 5);
+      setProgress(progress + step);
+
+      // occasional random status updates
+      if (Math.random() < 0.35) setStatus();
+
+      // near completion: reset
+      if (progress >= rand(86, 95) && Math.random() < 0.55) {
+        teaseReset();
+      }
+
+      // keep it moving
+      const delay = rand(220, 520);
+      setTimeout(tick, delay);
+    }
+
+    // Button that sometimes dodges
+    function dodge() {
+      const now = Date.now();
+      if (now - lastMove < 250) return;
+      lastMove = now;
+
+      // Move within a small range so it doesn't become impossible
+      const x = rand(-60, 60);
+      const y = rand(-18, 18);
+
+      btn.style.transform = `translate(${x}px, ${y}px)`;
+      btn.classList.remove("nudge");
+      void btn.offsetWidth;
+      btn.classList.add("nudge");
+
+      setTimeout(() => {
+        btn.style.transform = "";
+      }, rand(350, 700));
+    }
+
+    btn.addEventListener("mouseenter", () => {
+      // 55% chance to dodge on hover
+      if (Math.random() < 0.55) dodge();
+    });
+
+    btn.addEventListener("click", () => {
+      clicks++;
+      setStatus();
+
+      // Every few clicks, pretend to get close… then reset again
+      if (clicks % 3 === 0) {
+        teaseReset();
+      } else {
+        setProgress(progress + rand(8, 16));
+      }
+
+      // Sometimes the click "does nothing"
+      if (Math.random() < 0.25) {
+        setProgress(progress); // no-op
+      }
+    });
+
+    // Kick things off
+    setStatus();
+    setProgress(rand(3, 12));
+    setTimeout(tick, rand(200, 500));
+
+    // Extra: occasional tiny regressions to feel "messy"
+    setInterval(() => {
+      if (Math.random() < 0.18) {
+        setProgress(progress - rand(2, 7));
+        setStatus();
+      }
+    }, 1200);
+  </script>
 </body>
 </html>
